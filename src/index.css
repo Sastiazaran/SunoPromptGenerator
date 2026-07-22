@@ -1,0 +1,5 @@
+/* Global reset lives lightly here; theme tokens are in App.css */
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
