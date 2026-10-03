@@ -42,6 +42,14 @@ export type GenreEmphasis =
 
 export type Intensity = 'intimate' | 'steady' | 'driving' | 'soaring'
 
+/**
+ * Journey stages grouped by the emotional weather they share.
+ * Lyric banks and harmonic colour are keyed on the family rather than on all
+ * ten stages, so each family can hold several hand-written blocks instead of
+ * one thin template stretched across everything.
+ */
+export type EmotionalFamily = 'ignition' | 'bond' | 'rupture' | 'resolve' | 'homecoming'
+
 export type VocalType =
   | 'warm_male'
   | 'warm_female'
@@ -336,6 +344,19 @@ export const JOURNEY_STAGES: JourneyStage[] = [
   },
 ]
 
+export const STAGE_FAMILY: Record<JourneyStageId, EmotionalFamily> = {
+  beginning: 'ignition',
+  discovery: 'ignition',
+  connection: 'bond',
+  passion: 'bond',
+  fracture: 'rupture',
+  silence: 'rupture',
+  decision: 'resolve',
+  rebirth: 'resolve',
+  return: 'homecoming',
+  horizon: 'homecoming',
+}
+
 export const SETTINGS: Setting[] = [
   {
     id: 'gas_station',
@@ -457,6 +478,16 @@ export const SONIC_DEFAULTS = {
     provenance: 'inferred' as Provenance,
     source: 'World Building era + reference songs (Is This Love, Cryin’, Crazy) + Song Generation Engine gaps',
   },
+  /**
+   * The genre head of the style prompt. Deliberately short: Suno weights the
+   * opening terms heaviest, and the long `genreCore` sentence used to eat that
+   * budget with words the model cannot render.
+   */
+  styleCore: {
+    value: 'cinematic highway rock, AOR, melodic hard rock',
+    provenance: 'inferred' as Provenance,
+    source: 'Musical Language (inferred) — condensed from genreCore for prompt weighting',
+  },
   allowedFlavors: {
     value: ['country', 'blues', 'soft synth glow', 'acoustic'] as const,
     provenance: 'documented' as Provenance,
@@ -469,7 +500,7 @@ export const SONIC_DEFAULTS = {
     source: 'Experience Manifest + World Building space/air language',
   },
   bpmByIntensity: {
-    intimate: [68, 86] as [number, number],
+    intimate: [60, 88] as [number, number],
     steady: [88, 104] as [number, number],
     driving: [106, 122] as [number, number],
     soaring: [96, 118] as [number, number],
@@ -521,7 +552,7 @@ export const GENRE_EMPHASIS_LABELS: Record<
   synth_glow: {
     en: 'Soft Synth Glow',
     es: 'Brillo synth suave',
-    styleTags: 'rock with soft synth glow, restrained neon atmosphere, not hyper-saturated synthwave',
+    styleTags: 'rock with soft synth glow, restrained neon atmosphere, warm analog pads',
     provenance: 'documented',
   },
 }
@@ -555,12 +586,13 @@ export const VOCAL_LABELS: Record<VocalType, { en: string; es: string; style: st
 }
 
 export const OPEN_DECISIONS: string[] = [
-  'Official Musical Language bible (instrument nicknames, riff vocabulary)',
-  'Production Bible (Marshall, plate reverb, doubles — still empty)',
-  'Exact BPM ranges per biome',
+  'Musical Language bible — the app now ships an inferred one in music.ts; Notion still needs to ratify it',
+  'Production Bible — inferred era presets exist; official gear/mix choices still unwritten',
+  'Exact BPM per biome (currently derived from intensity, not from the setting)',
   'Official tone name beyond provisional “melancolía luminosa”',
   'Story Seeds corpus and Human Archetypes catalog',
   'Whether Spanish and English catalogs share the same sonic defaults',
+  'Whether any reference artist may be named directly in a Suno prompt',
 ]
 
-export const SCHEMA_VERSION = '1.0.0'
+export const SCHEMA_VERSION = '2.0.0'

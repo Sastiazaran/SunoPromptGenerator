@@ -1,6 +1,7 @@
 import type { SongPackage } from './types'
 
-const STORAGE_KEY = 'nhr-suno-history-v1'
+/** v2 packages carry `music` and `arrangement`; v1 entries would render as blanks. */
+const STORAGE_KEY = 'nhr-suno-history-v2'
 const MAX_ITEMS = 30
 
 export function loadHistory(): SongPackage[] {

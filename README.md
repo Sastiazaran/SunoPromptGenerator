@@ -1,12 +1,14 @@
 # Neon Highway Rock — Suno Prompt Studio
 
-Local bilingual generator that turns your Neon Highway Rock creative rules into Suno-ready song packages:
+Local bilingual generator that turns Neon Highway Rock creative rules into Suno-ready song packages:
 
-- **Style of Music** prompt
+- **Style of Music** — dense, musical prompt (BPM, key, progression, instruments, groove, production era)
+- **Musical spec + arrangement map** — concrete decisions you can inspect or override
 - Title + concept
-- Full lyrics with `[Verse]` / `[Chorus]` / `[Bridge]` / `[Outro]`
-- Negative / exclusion prompt
+- Full lyrics with section tags and production notes (`[Verse: …]`, `[Guitar Solo: …]`, etc.)
+- Exclude Styles list (negations stay out of the positive style field)
 - Checklist of applied rules with provenance (`documented` | `inferred` | `open`)
+- **Reroll** — same brief, new song via `variant`
 
 ## Quick start
 
@@ -18,16 +20,25 @@ npm run dev
 Open the URL Vite prints (usually `http://localhost:5173`).
 
 ```bash
-npm test      # focused generator/validation tests
+npm test      # generator / validation tests
 npm run build # production build
 ```
 
 ## How to use with Suno
 
 1. Fill the song brief (language, journey stage, setting, genre, intensity, vocals).
-2. Click **Generate Suno package**.
-3. Use **Copy all for Suno** (or copy style / lyrics separately).
-4. Paste into Suno Custom mode: style field + lyrics field.
+2. Optionally lock production era, song form, or tempo.
+3. Click **Generate Suno package** (or **Reroll** for another draw of the same brief).
+4. Paste into Suno Custom mode: Style of Music + Exclude Styles + Lyrics.
+
+## Why packages stay distinct
+
+Earlier versions reused one lyric skeleton and a prose-heavy style prompt, so Suno kept making the same song. v2.0.0 fixes that with:
+
+- Independent seeded RNG streams per decision (`rng.ts`)
+- A Musical Language / Production Bible (`music.ts`) — palettes, keys, grooves, eras, forms
+- A written lyric corpus keyed by emotional family + language (`lyrics-bank.ts`)
+- Style prompts built as concrete musical noun phrases, with no negations in the positive field
 
 ## Creative provenance
 
@@ -38,23 +49,22 @@ Rules live in `src/creative/schema.ts`, derived from the Notion corpus:
 | Philosophy Manifest / Banderas de Diseño / Creative DNA | Hard identity laws |
 | Human Journey Atlas | Journey stages + golden questions |
 | World Building / Experience Manifest | Settings, biomes, emotional tone |
-| Song Generation Engine | Notes incomplete layers (Musical Language, Production Bible) |
+| Musical Language / Production Bible (`music.ts`) | Inferred until Notion ratifies |
 
-Only **documented** rules are hard validation constraints. Sonic BPM ranges and AOR/highway defaults are **inferred** until Musical Language / Production Bible are written.
-
-## Notion companion
-
-Under the **Neon Highway rock** hub, create/use the **Suno Prompt System** page (schema + templates + backlog) and the **Suno Track Log** database for generated packages.
+Only **documented** rules are hard validation constraints. Sonic defaults are **inferred**.
 
 ## Project layout
 
 ```
 src/
   creative/
-    schema.ts       # versioned creative rules
-    generator.ts    # deterministic package builder
-    validate.ts     # input + package validation
-    history.ts      # localStorage history
+    schema.ts         # versioned creative rules
+    music.ts          # instruments, harmony, groove, production, forms
+    lyrics-bank.ts    # hand-written lyric blocks by family / language
+    rng.ts            # deterministic seeded randomness
+    generator.ts      # package builder
+    validate.ts       # input + package validation
+    history.ts        # localStorage history
     types.ts
-  App.tsx           # studio UI
+  App.tsx             # studio UI
 ```

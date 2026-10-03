@@ -14,7 +14,8 @@ import {
   type SettingId,
   type VocalType,
 } from './creative/schema'
-import { formatForSuno, generateSongPackage } from './creative/generator'
+import { PRODUCTION_ERAS, SONG_FORMS } from './creative/music'
+import { formatForSuno, generateSongPackage, musicSummary } from './creative/generator'
 import { clearHistory, loadHistory, saveToHistory } from './creative/history'
 import type { SongInput, SongPackage } from './creative/types'
 import { validateInput } from './creative/validate'
@@ -32,10 +33,23 @@ const DEFAULT_INPUT: SongInput = {
   relationship: '',
   emotionalDestination: '',
   lyricalSeed: '',
+  variant: 0,
 }
 
 function copyText(text: string): Promise<void> {
   return navigator.clipboard.writeText(text)
+}
+
+/** Blank optional text fields must reach the generator as undefined, not ''. */
+function normalize(input: SongInput): SongInput {
+  return {
+    ...input,
+    relationship: input.relationship?.trim() || undefined,
+    emotionalDestination: input.emotionalDestination?.trim() || undefined,
+    lyricalSeed: input.lyricalSeed?.trim() || undefined,
+    productionEraId: input.productionEraId || undefined,
+    songFormId: input.songFormId || undefined,
+  }
 }
 
 export default function App() {
@@ -50,27 +64,30 @@ export default function App() {
     setHistory(loadHistory())
   }, [])
 
-  const warnings = validateInput(input).filter((i) => i.severity === 'warning')
-  const [bpmMin, bpmMax] = SONIC_DEFAULTS.bpmByIntensity[input.intensity]
+  const warnings = validateInput(normalize(input)).filter((i) => i.severity === 'warning')
+  const [windowMin, windowMax] = SONIC_DEFAULTS.bpmByIntensity[input.intensity]
 
-  function onGenerate(e?: FormEvent) {
-    e?.preventDefault()
+  function generate(next: SongInput) {
     setError(null)
     setCopied(null)
     try {
-      const next = generateSongPackage({
-        ...input,
-        bpmMin: input.bpmMin ?? bpmMin,
-        bpmMax: input.bpmMax ?? bpmMax,
-        relationship: input.relationship?.trim() || undefined,
-        emotionalDestination: input.emotionalDestination?.trim() || undefined,
-        lyricalSeed: input.lyricalSeed?.trim() || undefined,
-      })
-      setPkg(next)
-      setHistory(saveToHistory(next))
+      const result = generateSongPackage(normalize(next))
+      setInput(next)
+      setPkg(result)
+      setHistory(saveToHistory(result))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Generation failed')
     }
+  }
+
+  function onGenerate(e?: FormEvent) {
+    e?.preventDefault()
+    generate(input)
+  }
+
+  /** Same brief, new draw — the reason the studio stopped producing one song. */
+  function onReroll() {
+    generate({ ...input, variant: (input.variant ?? 0) + 1 })
   }
 
   async function handleCopy(label: string, text: string) {
@@ -85,8 +102,9 @@ export default function App() {
         <p className="brand">Neon Highway Rock</p>
         <h1>Suno Prompt Studio</h1>
         <p className="lede">
-          Turn journey stage, setting, and emotion into a Suno-ready package — style prompt, concept,
-          and full lyrics — grounded in your creative docs.
+          Turn journey stage, setting, and emotion into a Suno-ready package — a musically specific
+          style prompt, a full arrangement map, and lyrics drawn from a written corpus rather than a
+          single template.
         </p>
         <p className="meta">
           Schema v{SCHEMA_VERSION} · Documented rules are hard · Inferred sonic defaults are labeled
@@ -155,7 +173,7 @@ export default function App() {
                 </option>
               ))}
             </select>
-            <span className="hint inferred">Mix of documented flavors + inferred AOR/highway core</span>
+            <span className="hint inferred">Selects the instrument palette in the Musical Language</span>
           </label>
 
           <label>
@@ -170,7 +188,7 @@ export default function App() {
                 </option>
               ))}
             </select>
-            <span className="hint open">Open — BPM defaults are inferred until Musical Language exists</span>
+            <span className="hint inferred">Drives groove, meter and tempo</span>
           </label>
 
           <label>
@@ -185,31 +203,55 @@ export default function App() {
                 </option>
               ))}
             </select>
-            <span className="hint inferred">Inferred — Production Bible incomplete</span>
+            <span className="hint inferred">Sets register, harmony stack and delivery</span>
           </label>
 
           <div className="row">
             <label>
-              BPM min
-              <input
-                type="number"
-                value={input.bpmMin ?? bpmMin}
-                onChange={(e) =>
-                  setInput({ ...input, bpmMin: Number(e.target.value) || undefined })
-                }
-              />
+              Production era
+              <select
+                value={input.productionEraId ?? ''}
+                onChange={(e) => setInput({ ...input, productionEraId: e.target.value })}
+              >
+                <option value="">Auto</option>
+                {PRODUCTION_ERAS.map((era) => (
+                  <option key={era.id} value={era.id}>
+                    {era.label}
+                  </option>
+                ))}
+              </select>
             </label>
             <label>
-              BPM max
-              <input
-                type="number"
-                value={input.bpmMax ?? bpmMax}
-                onChange={(e) =>
-                  setInput({ ...input, bpmMax: Number(e.target.value) || undefined })
-                }
-              />
+              Song form
+              <select
+                value={input.songFormId ?? ''}
+                onChange={(e) => setInput({ ...input, songFormId: e.target.value })}
+              >
+                <option value="">Auto</option>
+                {SONG_FORMS.map((form) => (
+                  <option key={form.id} value={form.id}>
+                    {form.label}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
+
+          <label>
+            Tempo override
+            <input
+              type="number"
+              placeholder={`Auto — ${windowMin}–${windowMax} for "${input.intensity}"`}
+              value={input.bpm ?? ''}
+              onChange={(e) =>
+                setInput({ ...input, bpm: e.target.value === '' ? undefined : Number(e.target.value) })
+              }
+            />
+            <span className="hint inferred">
+              Leave blank to take the tempo from the groove. Suno locks onto one number better than a
+              range.
+            </span>
+          </label>
 
           <label>
             Relationship at stake
@@ -226,10 +268,11 @@ export default function App() {
             Emotional destination
             <input
               type="text"
-              placeholder="e.g. luminous nostalgia / seguir con esperanza"
+              placeholder="e.g. a luminous nostalgia / una esperanza más quieta"
               value={input.emotionalDestination ?? ''}
               onChange={(e) => setInput({ ...input, emotionalDestination: e.target.value })}
             />
+            <span className="hint">A noun phrase — lyrics place it after prepositions</span>
           </label>
 
           <label>
@@ -256,6 +299,10 @@ export default function App() {
             Generate Suno package
           </button>
 
+          <button type="button" className="ghost" onClick={onReroll}>
+            Reroll — same brief, new song (variant {(input.variant ?? 0) + 1})
+          </button>
+
           <button type="button" className="ghost" onClick={() => setShowOpen((v) => !v)}>
             {showOpen ? 'Hide' : 'Show'} open documentation decisions
           </button>
@@ -270,7 +317,9 @@ export default function App() {
 
         <section className="panel results">
           <h2>Output</h2>
-          {!pkg && <p className="empty">Generate a package to see style, lyrics, and rule provenance.</p>}
+          {!pkg && (
+            <p className="empty">Generate a package to see style, arrangement, lyrics and provenance.</p>
+          )}
           {pkg && (
             <>
               <div className="toolbar">
@@ -279,6 +328,9 @@ export default function App() {
                 </button>
                 <button type="button" onClick={() => handleCopy('style', pkg.stylePrompt)}>
                   Copy style
+                </button>
+                <button type="button" onClick={() => handleCopy('exclude', pkg.negativePrompt)}>
+                  Copy exclude
                 </button>
                 <button type="button" onClick={() => handleCopy('lyrics', pkg.lyrics)}>
                   Copy lyrics
@@ -292,13 +344,55 @@ export default function App() {
               </article>
 
               <article>
-                <h4>Style of Music</h4>
+                <h4>Musical spec</h4>
+                <dl className="spec">
+                  <dt>Tempo</dt>
+                  <dd>
+                    {pkg.music.bpm} BPM · {pkg.music.meter} · {pkg.music.feel}
+                  </dd>
+                  <dt>Key</dt>
+                  <dd>
+                    {pkg.music.key} — {pkg.music.keyCharacter}
+                  </dd>
+                  <dt>Progression</dt>
+                  <dd>
+                    {pkg.music.progression} ({pkg.music.progressionLabel})
+                  </dd>
+                  <dt>Drums</dt>
+                  <dd>{pkg.music.drumNote}</dd>
+                  <dt>Instrumentation</dt>
+                  <dd>{pkg.music.instrumentation.join(' · ')}</dd>
+                  <dt>Voice</dt>
+                  <dd>{pkg.music.vocal.join(' · ')}</dd>
+                  <dt>Production</dt>
+                  <dd>
+                    {pkg.music.productionEraLabel} — {pkg.music.productionEraTags}
+                  </dd>
+                  <dt>Form</dt>
+                  <dd>{pkg.music.formLabel}</dd>
+                </dl>
+              </article>
+
+              <article>
+                <h4>Style of Music ({pkg.stylePrompt.length} chars)</h4>
                 <pre>{pkg.stylePrompt}</pre>
               </article>
 
               <article>
-                <h4>Exclude / Negative</h4>
+                <h4>Exclude Styles</h4>
                 <pre>{pkg.negativePrompt}</pre>
+              </article>
+
+              <article>
+                <h4>Arrangement</h4>
+                <ol className="arrangement">
+                  {pkg.arrangement.map((section, i) => (
+                    <li key={`${section.label}-${i}`}>
+                      <strong>{section.label}</strong>
+                      <span>{section.note}</span>
+                    </li>
+                  ))}
+                </ol>
               </article>
 
               <article>
@@ -320,8 +414,8 @@ export default function App() {
               <article>
                 <h4>Applied rules</h4>
                 <ul className="rules">
-                  {pkg.appliedRules.map((r) => (
-                    <li key={`${r.source}-${r.rule}`}>
+                  {pkg.appliedRules.map((r, i) => (
+                    <li key={`${r.source}-${i}`}>
                       <span className={`badge ${r.provenance}`}>{r.provenance}</span>
                       <span>{r.rule}</span>
                       <small>{r.source}</small>
@@ -357,6 +451,7 @@ export default function App() {
                     {item.input.language.toUpperCase()} · {item.input.journeyStageId} ·{' '}
                     {item.input.settingId}
                   </span>
+                  <span>{musicSummary(item.music)}</span>
                 </button>
               </li>
             ))}
